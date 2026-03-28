@@ -13,10 +13,11 @@ function getDefaultInputPacket() {
 }
 
 const Bot = class {
-    constructor(sansboxMode = true, tankConfig = tank_.dragonConfig) {
-        if (!sansboxMode) {
-            throw "Only sandbox is supported."
-        }
+    constructor(sansboxMode = false, tankConfig = tank_.dragonConfig) {
+        // sansboxMode: set true only when playing on the diep.io sandbox server.
+        // In sandbox the bot can instantly level up via INSTANT_UPGRADE.
+        // For regular game modes (2 Teams, FFA, …) leave false (the default).
+        this.sansboxMode = sansboxMode
         this.w = new World()
         this.ai = new AI(this.w)
         this.setTankConfig(tankConfig);
@@ -47,27 +48,33 @@ const Bot = class {
 
     setTankConfig(tankConfig) {
         this.tankConfig = tankConfig
-        this.buildManager = new tank_.TankBuildManager(this.tankConfig)
+        this.buildManager = new tank_.TankBuildManager(this.tankConfig, this.sansboxMode)
     }
 
     reset() {
         this.w.clear()
         this.buildManager.reset()
-        return [
-            {
+        let packets = []
+        if (this.sansboxMode) {
+            // In sandbox we can force-kill the current tank so we respawn fresh
+            // at level 1 and run the full INSTANT_UPGRADE build sequence.
+            // In regular game modes SUICIDE before the player has ever spawned
+            // triggers a server-side 4001 disconnect, so we skip it.
+            packets.push({
                 kind: data.outPacketKinds.INPUT,
                 x: 0,
                 y: 0,
                 key: data.keyInput.SUICIDE,
-            },
-            {
+            })
+            packets.push({
                 kind: data.outPacketKinds.CLEAR_DEATH,
-            },
-            {
-                kind: data.outPacketKinds.SPAWN,
-                name: "Guard",
-            },
-        ]
+            })
+        }
+        packets.push({
+            kind: data.outPacketKinds.SPAWN,
+            name: "Guard",
+        })
+        return packets
     }
 
     noTargetStrategy(inputPacket) {

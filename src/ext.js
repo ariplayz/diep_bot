@@ -16,7 +16,16 @@ while (1) {
     }
 }
 
-let bot = new Bot(true, tank_.tankTypes[tank])
+// Detect game mode.
+// Sandbox mode (diep.io sandbox server): the bot can instantly level up via
+// INSTANT_UPGRADE and will suicide/respawn to run the full build sequence.
+// Regular game (2 Teams, FFA, Domination, …): no instant level-up; the bot
+// takes over whichever tank the player currently has without suiciding first.
+let sandboxMode = window.confirm(
+    'Are you playing in Sandbox mode?\n\nOK = Sandbox  |  Cancel = Regular game (2 Teams, FFA, …)'
+)
+
+let bot = new Bot(sandboxMode, tank_.tankTypes[tank])
 // True from the start: if the script loads while the player is already in-game no SPAWN packet
 // will fire, so waiting for one would keep initDone false forever.  bot.getOutPackets() manages
 // its own spawn/reset lifecycle via bot.spawned, so this guard is not needed.
