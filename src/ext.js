@@ -74,19 +74,30 @@ function sendPackets(wsInstance, packets) {
 }
 
 function handleSendData(buffer) {
-    let p = new Parser(buffer)
-    let packet = p.parseOutbound()
-    if (packet.kind === data.outPacketKinds.EXT_FOUND) {
+    // Read the packet kind from the raw first byte.
+    // All diep.io outbound packet kinds are < 128 so they encode as a single
+    // byte in both i8 and varint form — no full parse needed here, which also
+    // avoids assertEOF() throws when the game appends extra bytes to a packet.
+    let kind = buffer[0] // safe: all outbound kinds (0-9) are < 128, so first byte == kind in both raw and varint encoding
+    if (kind === data.outPacketKinds.EXT_FOUND) {
         return null
-    } else if (packet.kind === data.outPacketKinds.SPAWN) {
+    }
+    if (kind === data.outPacketKinds.SPAWN) {
         initDone = true
         bot.spawned = false
         return buffer
     }
-    if (packet.kind === data.outPacketKinds.INPUT) {
+    if (kind === data.outPacketKinds.INPUT) {
         // When bot is active and the game is initialised, hand control to the AI.
         if (botActive && initDone) {
-            return sendPackets(this, bot.getOutPackets())
+            try {
+                return sendPackets(this, bot.getOutPackets())
+            } catch (e) {
+                console.log('[DiepBot] Bot error, deactivating:', e)
+                botActive = false
+                updateOverlay()
+                return buffer
+            }
         }
         // Otherwise pass the player's own input straight through untouched.
         return buffer
