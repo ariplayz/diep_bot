@@ -107,7 +107,8 @@ const Encoder = class {
     }
 
     encodeInput(packet) {
-        return this.vu(packet.kind).vu(packet.key).vf(packet.x).vf(packet.y).out()
+        // TRUE_CONST (bit 11, 0x800) must be set in every INPUT packet or the server silently discards it.
+        return this.vu(packet.kind).vu((packet.key || 0) | data.keyInput.TRUE_CONST).vf(packet.x).vf(packet.y).out()
     }
 
     encodeInit(packet) {

@@ -273,16 +273,8 @@ const TankBuildManager = class {
                 }
             )
         }
-        if (this.config.isAC) {
-            packets.push(
-                {
-                    kind: data.outPacketKinds.INPUT,
-                    key: data.keyInput.SWITCH_CLASS,
-                    x: 0,
-                    y: 0,
-                }
-            )
-        }
+        // SWITCH_CLASS (1024) is a server-restricted flag — sending it as a regular
+        // player triggers "client flag invalid" and a 4001 disconnect.
         return packets
     }
 }
