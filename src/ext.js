@@ -17,7 +17,10 @@ while (1) {
 }
 
 let bot = new Bot(true, tank_.tankTypes[tank])
-let initDone = false
+// True from the start: if the script loads while the player is already in-game no SPAWN packet
+// will fire, so waiting for one would keep initDone false forever.  bot.getOutPackets() manages
+// its own spawn/reset lifecycle via bot.spawned, so this guard is not needed.
+let initDone = true
 
 // Bot starts OFF — normal gameplay by default. Press ` to toggle bot takeover.
 let botActive = false
