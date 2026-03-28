@@ -14,15 +14,48 @@ while (1) {
     } else {
         window.alert("No such tank: " +  tank + " (not supported).")
     }
-
 }
 
 let bot = new Bot(true, tank_.tankTypes[tank])
 let initDone = false
 
+// Bot starts OFF — normal gameplay by default. Press ` to toggle bot takeover.
+let botActive = false
+
+// -----------------
+// Status overlay
+
+var overlay = (function() {
+    var div = document.createElement('div')
+    div.style.cssText = 'position:fixed;top:10px;right:10px;background:rgba(0,0,0,0.7);color:#fff;padding:6px 14px;border-radius:6px;font:bold 13px monospace;z-index:9999;pointer-events:none;line-height:1.8'
+    document.body.appendChild(div)
+    return div
+})()
+
+function updateOverlay() {
+    overlay.innerHTML = 'DIEP BOT [<code>`</code>]: <span style="color:' + (botActive ? '#4f4' : '#f44') + '">' + (botActive ? 'ON — bot in control' : 'OFF — normal play') + '</span>'
+}
+updateOverlay()
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === '`') {
+        botActive = !botActive
+        if (botActive) {
+            // Reset so the bot re-initialises its build on next spawn cycle.
+            bot.spawned = false
+        }
+        updateOverlay()
+        console.log('[DiepBot] Bot ' + (botActive ? 'ACTIVATED — AI in control' : 'DEACTIVATED — manual play'))
+    }
+})
+
+// -----------------
+// WS hooks
+
 function handleRecvData(buffer) {
-  try {
+    try {
         let p = new Parser(buffer)
+        // Always parse world state so the bot is ready the moment it is switched on.
         bot.worldUpdate(p.parseInbound())
     } catch (e) {
         // About 5% of packets the parser currently fails to parse.
@@ -43,13 +76,19 @@ function sendPackets(wsInstance, packets) {
 function handleSendData(buffer) {
     let p = new Parser(buffer)
     let packet = p.parseOutbound()
-    if (packet.kind === data.outPacketKinds.INPUT) {
-        return initDone ? sendPackets(this, bot.getOutPackets(packet)) : buffer
-    } else if (packet.kind === data.outPacketKinds.EXT_FOUND) {
+    if (packet.kind === data.outPacketKinds.EXT_FOUND) {
         return null
     } else if (packet.kind === data.outPacketKinds.SPAWN) {
         initDone = true
-        bot.reset()
+        bot.spawned = false
+        return buffer
+    }
+    if (packet.kind === data.outPacketKinds.INPUT) {
+        // When bot is active and the game is initialised, hand control to the AI.
+        if (botActive && initDone) {
+            return sendPackets(this, bot.getOutPackets())
+        }
+        // Otherwise pass the player's own input straight through untouched.
         return buffer
     }
     return buffer
